@@ -28,9 +28,20 @@ The following are the command line options that can be passed to run_models.py:
 | --model     | name of the model to run. Either one or all the models can be run.                                        | all     | \[all, m1, m2, m3, m4,...\] |
 | --ncpus     | number of CPUs to use. When cpu is specified for --cpu option, this denotes the number of threads to run. | 1       | An integer                  |
 | --params    | parameter set to use for simulations. Currently, there are 2 different system parameter sets.             | 1       | \[1, 2\]                    |
-| --moo       | Mutually exclusive options to run one of multi-objective optimisation, system dynamics, robustness test.  | -       | -                           |
-| --dyn       | ^                                                                                                         | ^       | ^                           |
-| --rnd       | ^                                                                                                         | ^       | ^                           |
+<table>
+  <tr>
+    <td>--moo</td>
+    <td rowspan="3">Mutually exclusive options to run one of multi-objective optimisation, system dynamics, robustness test.</td>
+    <td rowspan="3">-</td>
+    <td rowspan="3">-</td>
+  </tr>
+  <tr>
+    <td>--dyn</td>
+  </tr>
+  <tr>
+    <td>--rnd</td>
+  </tr>
+</table>
 
 # Packages
 In addition to standard python packages, the following packages need to be installed:
