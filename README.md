@@ -1,7 +1,7 @@
-# Synthetic biology
 This repository contains mathematical models implemented in Python that compare control strategies to maximise biomanufacturing performance from microbial division of labour consortia.
 
 # File organisation
+All the python scripts are currently placed inside 'src' directory.
 ## Main
 - run_models.py - script from which the simulations are run. Takes in arguments from the users, calls the utility functions to execute the algorithms, plots and stores the results.
 
