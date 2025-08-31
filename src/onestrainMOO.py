@@ -173,10 +173,10 @@ term = MultiTerm(ODETerm(explicit_term), ODETerm(onestrainlinxpODE_wrapped))
 stepsize_controller = PIDController(rtol=1e-3, atol=1e-6, pcoeff=0.2, icoeff=0.5)
 max_steps = 8192
 
-#@equinox.filter_jit
+@equinox.filter_jit
 def oneStrainMultiObj(hPR, cPR, Y00, N0, tmax, scalefactor):
     # Set initial conditions
-    Y0 = Y00; Y0[3] = N0
+    Y0 = Y00; Y0.at[3].set(N0)
     Y0 = jnp.maximum(Y0, 0)
 
     def true_func(sol):
@@ -314,11 +314,14 @@ def init_arrays(params, mparams, CellY0=None):
     
     return Y0, hPR, cPR
 
-def update_arrays(params, Y0):
+def update_arrays(params, Y0, hPR, cPR, x=None):
+    if x is not None:
+        cPR[0] = x[0] # Set wA
+        cPR[7] = x[1] # Set wB
+        hPR[6] = x[2] # Set wE       
     Y0 = np.maximum(Y0, 0)
     Y0[0:4] = params.xS0, params.xA0, params.xB0, params.N0
-
-    return Y0
+    return Y0, hPR, cPR
 
 ONE_STRAIN_UTILS = {
     "name": "one strain (1S)",

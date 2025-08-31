@@ -510,11 +510,22 @@ def init_arrays(params, mparams, CellY0):
     
     return Y0, hPR, cPR
 
-def update_arrays(params, Y0):
+def update_arrays(params, Y0, hPR, cPR, x=None):
+    if x is not None:
+        cPR[0] = x[0] # Set wA
+        cPR[7] = x[1] # Set wB
+        params.r0 = x[2]
+        hPR[6] = x[3] # set wE_a
+        hPR[30] = x[4] # set wE_b
+        hPR[48] = x[5] # set wI_a
+        hPR[49] = x[6] # set wU_a
+        hPR[50] = x[7] # set wS_a
+        hPR[67] = x[8] # set wI_b
+        hPR[68] = x[9] # set wU_b
+        hPR[69] = x[10] # set wS_b
     Y0 = np.maximum(Y0, 0)
     Y0[0:5] = params.xS0, params.xA0, params.xB0, params.r0*params.N0, (1-params.r0)*params.N0
-
-    return Y0
+    return Y0, hPR, cPR
 
 TWO_STRAINS_QS_BOO_UTILS = {
     "name": "2S QS burden tuning",

@@ -408,11 +408,16 @@ def init_arrays(params, mparams, CellY0):
     
     return Y0, hPR, cPR
 
-def update_arrays(params, Y0):
+def update_arrays(params, Y0, hPR, cPR, x=None):
+    if x is not None:
+        cPR[0] = x[0] # Set wA
+        cPR[7] = x[1] # Set wB
+        params.r0 = x[2]
+        hPR[6] = x[3] # set wE_a
+        hPR[30] = x[4] # set wE_b
     Y0 = np.maximum(Y0, 0)
     Y0[0:5] = params.xS0, params.xA0, params.xB0, params.r0*params.N0, (1-params.r0)*params.N0
-
-    return Y0
+    return Y0, hPR, cPR
 
 TWO_STRAINS_UTILS = {
     "name": "two strains (2S)",

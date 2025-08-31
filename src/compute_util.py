@@ -16,6 +16,7 @@ class Compute():
     def __init__(self, **kwargs):
         self.mparams = None
         self.model = None
+        self.bestX = None
 
         for key, val in kwargs.items():
             self.__dict__[key] = val
@@ -23,6 +24,9 @@ class Compute():
         if any(var is None for var in (self.model, self.params)):
             print("Compute class not properly initialised", flush=True)
             return None
+
+        if self.CellY0 is not None:
+            Compute.CellY0 = self.CellY0
         
         if Compute.CellY0 is None:
             print("Simulating one strain steady state")
@@ -34,6 +38,9 @@ class Compute():
         self.Y0, self.hPR, self.cPR = self.model["init_arrays"](self.params, self.mparams, self.CellY0)
 
     def solve_steady_state(self):
+        """
+        Solve the steady state conditions for one strain model
+        """
         ode_term = ONE_STRAIN_UTILS["ode_scipy"]
         Y0, hPR, cPR = ONE_STRAIN_UTILS["init_arrays"](self.params, self.mparams, None)
    
@@ -49,6 +56,12 @@ class Compute():
         return sol_SS
     
     def solve_odes(self, ode_term=None, tspan=(0, 1e6), Y0=None, args=None, method="Radau"):
+        """
+        Solves the ODE system using scipy.integrate.solve_ivp. Takes in the ODE function, a tuple specifying the time span,
+        initial condition Y0, a tuple of additional arguments to the ODE function, solver method to use.
+        
+        Returns: a solve_ivp solution object containing the solutions at several time points across the time span among other fields.
+        """
         if any (arg is None for arg in [ode_term, Y0, args]):
             print("Insufficient arguments to solve the ODE system", flush=True)
             return None
@@ -60,30 +73,38 @@ class Compute():
             sol = None
         return sol
     
-    def update_Y0(self, sol):
+    def update_arrays(self, sol):
+        """
+        Updates the initial condition Y0 using the solution object obtained from solving the ODE system.
+        """
         Y_ON = np.array(sol.y.T[-1])
         self.Y0[:] = Y_ON.flatten()
-        ret = self.model["update_arrays"](self.params, self.Y0)
+        self.Y0, self.hPR, self.cPR = self.model["update_arrays"](self.params, self.Y0, self.hPR, self.cPR, self.bestX)
 
-    def run_models(self):
+    def run_model(self):
+        """
+        Simulates a specific model for a set time span.
+        
+        Returns: a solve_ivp solution object containing the solutions at several time points across the time span among other fields.
+        """
         print(f"Simulate {self.model["name"]} for {self.params.tmax} minutes")
 
         try:
-            sol = solve_ivp(self.model["ode_scipy"], (0, self.params.tmax), self.Y0, args=(self.hPR, self.cPR), method='Radau')
+            self.Y0, self.hPR, self.cPR = self.model["update_arrays"](self.params, self.Y0, self.hPR, self.cPR, self.bestX)
+            sol = solve_ivp(self.model["ode_scipy"], (0, self.params.tmax), self.Y0, args=(self.hPR, self.cPR), method='BDF')
+            self.update_arrays(sol)
+            sol = solve_ivp(self.model["ode_scipy"], (0, self.params.tmax), self.Y0, args=(self.hPR, self.cPR), method='BDF')
+            self.update_arrays(sol)
         except:
             sol = None
-        
-        if sol is not None:
-            self.update_Y0(sol)
-            print(f"Simulate {self.model["name"]}", flush=True)
-            try:
-                sol = solve_ivp(self.model["ode_scipy"], (0, self.params.tmax), self.Y0, args=(self.hPR, self.cPR), method='Radau')
-                self.update_Y0(sol)
-            except:
-                sol = None
         return sol
 
     def run_MOO(self, algorithms, terminations):
+        """
+        Runs multi-objective optimisation
+        
+        Returns: a pymoo solution object containing objective values and design parameters values among other fields.
+        """
         lb, ub = self.model["var_bounds"]
         nvars = len(lb)
         runner =  StarmapParallelization(self.pool.starmap)
@@ -112,11 +133,17 @@ class Compute():
         print(f"Max yield and productivity: {SF}", flush=True)
         problem = self.model["mop"](nvars=nvars, nobjs=2, lb=lb, ub=ub, args=args,
                                   elementwise_runner=runner)
-        res = minimize(problem, algorithms["mop"], terminations["mop"], seed=self.seed, verbose=True)
+        res = minimize(problem, algorithms["mop"], terminations["mop"], seed=self.seed, verbose=False)
 
         return res, SF
     
     def run_dynamics(self, sol):
+        """
+        Takes in a solve_ivp solution object and computes the population levels, growth rates and levels of 
+        extracellular substances.
+        
+        Returns: Arrays containing population, growth rate and quantity of extracellular substances.
+        """
         T = sol.t.T
         Y = sol.y.T
 
@@ -133,6 +160,12 @@ class Compute():
         return pop, growth, em
     
     def run_rnd(self, bestX, args, rnd_params, rnd_range=0.5):
+        """
+        Runs the robustness test. Inputs are the x values, arguments to the objevtive functions, 
+        design parameters to be perturbed, level of uncertainty to add to each parameter.
+        
+        Returns: A list of objective values and the corresponding perturbed design parameter values
+        """
         rand = np.random.default_rng(seed=self.seed)
         bestX_rnd = copy.deepcopy(bestX)
         bestX_rnd = np.array(bestX_rnd)
@@ -142,8 +175,7 @@ class Compute():
         rnds = rand.uniform(-rnd_range, rnd_range, bestX_rnd.shape)
         bestX_rnd[:, rnd_params] *= (1 + rnds[:, rnd_params])
         tsols = bestX_rnd.shape[0]
-        size = int(tsols*0.2) if tsols > 50 else tsols
-        size = 10
+        size = int(tsols*0.2) if tsols > 40 else tsols
         x_chosen = bestX_rnd[np.random.choice(tsols, size=size, replace=False)]
         for x in x_chosen:
             _, prod_and_yld = self.model["calc_objs"](x, args=(hPR, cPR, Y0, self.params.N0, self.params.tmax, 

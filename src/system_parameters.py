@@ -42,7 +42,7 @@ class SystemParameters:
     r0: float = 0.5
        
     ### Strain A
-    wA: float =  50
+    wA: float =  0
     nA: float = 600
     bA: float = 1
     vAe: float = 5800
@@ -51,7 +51,7 @@ class SystemParameters:
     vXiA: float = 1
     
     ### Strain B
-    wB: float =  500
+    wB: float =  0
     nB: float = 1500
     bB: float = 1
     vBe: float = 58
